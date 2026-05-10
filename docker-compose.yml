@@ -1,0 +1,44 @@
+# Named volume en vez de bind mount: Docker gestiona el almacenamiento,
+# evita problemas de permisos entre host y contenedor, y es portátil
+# entre Linux/Mac/Windows sin ajustar rutas.
+
+services:
+  mysql-despachos:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: despachos_db
+      MYSQL_USER: despachos_user
+      MYSQL_PASSWORD: despachos_pass
+    volumes:
+      - mysql_despachos_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - despachos-network
+
+  app-despachos:
+    build:
+      context: ./Springboot-API-REST-DESPACHO
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-despachos:3306/despachos_db?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+      DB_USERNAME: despachos_user
+      DB_PASSWORD: despachos_pass
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql-despachos:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - despachos-network
+
+networks:
+  despachos-network:
+    driver: bridge
+
+volumes:
+  mysql_despachos_data:
